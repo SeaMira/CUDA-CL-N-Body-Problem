@@ -1,5 +1,6 @@
 
 #include <cstddef>
+#include "auxilliary.h"
 #ifdef __APPLE__
 #include <OpenCL/opencl.hpp>
 #else
@@ -19,8 +20,11 @@ struct Times {
     return create_data + copy_to_host + execution + copy_to_device;
   }
 };
-
+int bodies = 516, pos_x_limit = 100, pos_y_limit = 100, pos_z_limit = 100, vel_x_limit = 100, vel_y_limit = 100, vel_z_limit = 100;
+int WORK_GROUP_SIZE = 32;
 Times t;
+float *posiciones;
+float *velocidades;
 cl::Program prog;
 cl::CommandQueue queue;
 
@@ -52,23 +56,27 @@ bool init() {
   return true;
 }
 
-bool simulate(int N, int localSize, int globalSize) {
+bool simulate() {
   using std::chrono::microseconds;
-  std::size_t size = sizeof(int) * N;
-  std::vector<int> a(N), b(N), c(N);
+  std::size_t size = sizeof(float) * bodies * 3;
+
+  posiciones = new float[bodies*3];
+  velocidades = new float[bodies*3];
 
   // Create the memory buffers
-  cl::Buffer aBuff(queue.getInfo<CL_QUEUE_CONTEXT>(), CL_MEM_READ_WRITE, size);
-  cl::Buffer bBuff(queue.getInfo<CL_QUEUE_CONTEXT>(), CL_MEM_READ_WRITE, size);
-  cl::Buffer cBuff(queue.getInfo<CL_QUEUE_CONTEXT>(), CL_MEM_READ_WRITE, size);
+  cl::Buffer posBuff(queue.getInfo<CL_QUEUE_CONTEXT>(), CL_MEM_READ_WRITE, size);
+  cl::Buffer velBuff(queue.getInfo<CL_QUEUE_CONTEXT>(), CL_MEM_READ_WRITE, size);
 
   // Assign values to host variables
   auto t_start = std::chrono::high_resolution_clock::now();
-  for (int i = 0; i < N; i++) {
-    a[i] = std::rand() % 2000;
-    b[i] = std::rand() % 2000;
-    c[i] = 0;
-  }
+  // for (int i = 0; i < N; i++) {
+  //   a[i] = std::rand() % 2000;
+  //   b[i] = std::rand() % 2000;
+  //   c[i] = 0;
+  // }
+  init_values(pos_x_limit, pos_y_limit, pos_z_limit, posiciones, bodies);
+  init_values(vel_x_limit, vel_y_limit, vel_z_limit, velocidades, bodies);
+
   auto t_end = std::chrono::high_resolution_clock::now();
   t.create_data =
       std::chrono::duration_cast<microseconds>(t_end - t_start).count();
@@ -76,27 +84,30 @@ bool simulate(int N, int localSize, int globalSize) {
   // Copy values from host variables to device
   t_start = std::chrono::high_resolution_clock::now();
   // usar CL_FALSE para hacerlo asíncrono
-  queue.enqueueWriteBuffer(aBuff, CL_TRUE, 0, size, a.data());
-  queue.enqueueWriteBuffer(bBuff, CL_TRUE, 0, size, b.data());
+  queue.enqueueWriteBuffer(posBuff, CL_TRUE, 0, size, posiciones);
+  queue.enqueueWriteBuffer(velBuff, CL_TRUE, 0, size, velocidades);
   t_end = std::chrono::high_resolution_clock::now();
   t.copy_to_device =
       std::chrono::duration_cast<microseconds>(t_end - t_start).count();
 
   // Make kernel
-  cl::Kernel kernel(prog, "vec_sum");
+  cl::Kernel kernel(prog, "bodyInteraction");
 
+  float step = 1.0f;
   // Set the kernel arguments
-  kernel.setArg(0, aBuff);
-  kernel.setArg(1, bBuff);
-  kernel.setArg(2, cBuff);
-  kernel.setArg(3, N);
+  kernel.setArg(0, posBuff);
+  kernel.setArg(1, velBuff);
+  kernel.setArg(2, bodies);
+  kernel.setArg(3, step);
+  // pasar por argumento la masa, quizás, en un arreglo
+  // kernel.setArg(3, N);
 
   // Execute the function on the device (using 32 threads here)
-  cl::NDRange gSize(globalSize);
-  cl::NDRange lSize(localSize);
+  cl::NDRange gSize((bodies+WORK_GROUP_SIZE-1)/WORK_GROUP_SIZE);
+  cl::NDRange lSize(WORK_GROUP_SIZE);
 
   t_start = std::chrono::high_resolution_clock::now();
-  queue.enqueueNDRangeKernel(kernel, cl::NullRange, globalSize, localSize);
+  queue.enqueueNDRangeKernel(kernel, cl::NullRange, (bodies+WORK_GROUP_SIZE-1)/WORK_GROUP_SIZE, WORK_GROUP_SIZE);
   queue.finish();
   t_end = std::chrono::high_resolution_clock::now();
   t.execution =
@@ -105,7 +116,8 @@ bool simulate(int N, int localSize, int globalSize) {
 
   // Copy the output variable from device to host
   t_start = std::chrono::high_resolution_clock::now();
-  queue.enqueueReadBuffer(cBuff, CL_TRUE, 0, size, c.data());
+  queue.enqueueReadBuffer(posBuff, CL_TRUE, 0, size, posiciones);
+  queue.enqueueReadBuffer(velBuff, CL_TRUE, 0, size, velocidades);
   t_end = std::chrono::high_resolution_clock::now();
   t.copy_to_host =
       std::chrono::duration_cast<std::chrono::microseconds>(t_end - t_start)
@@ -131,33 +143,35 @@ bool simulate(int N, int localSize, int globalSize) {
 int main(int argc, char* argv[]) {
   if (!init()) return 1;
 
-  if (argc != 5) {
-    std::cerr << "Uso: " << argv[0]
-              << " <array size> <local size> <global size> <output file>"
-              << std::endl;
-    return 2;
-  }
-  int n = std::stoi(argv[1]);
-  int ls = std::stoi(argv[2]);
-  int gs = std::stoi(argv[3]);
+  // if (argc != 5) {
+  //   std::cerr << "Uso: " << argv[0]
+  //             << " <array size> <local size> <global size> <output file>"
+  //             << std::endl;
+  //   return 2;
+  // }
+  // int n = std::stoi(argv[1]);
+  // int ls = std::stoi(argv[2]);
+  // int gs = std::stoi(argv[3]);
 
-  if (!simulate(n, ls, gs)) {
+  if (!simulate()) {
     std::cerr << "CL: Error while executing the simulation" << std::endl;
     return 3;
   }
 
-  std::ofstream out;
-  out.open(argv[4], std::ios::app | std::ios::out);
-  if (!out.is_open()) {
-    std::cerr << "Error while opening file: '" << argv[2] << "'" << std::endl;
-    return 4;
-  }
-  // params
-  out << n << "," << ls << "," << gs << ",";
+  // std::ofstream out;
+  // out.open(argv[4], std::ios::app | std::ios::out);
+  // if (!out.is_open()) {
+  //   std::cerr << "Error while opening file: '" << argv[2] << "'" << std::endl;
+  //   return 4;
+  // }
+  // // params
+  // out << n << "," << ls << "," << gs << ",";
   // times
   out << t.create_data << "," << t.copy_to_device << "," << t.execution << ","
       << t.copy_to_host << "," << t.total() << "\n";
 
-  std::cout << "Data written to " << argv[4] << std::endl;
+  // std::cout << "Data written to " << argv[4] << std::endl;
+  delete[] posiciones;
+  delete[] velocidades;
   return 0;
 }

@@ -1,4 +1,4 @@
-set(CL_SOURCES main.cpp)
+set(CL_SOURCES main.cpp auxilliary.cpp)
 set(CL_KERNEL ${CMAKE_CURRENT_SOURCE_DIR}/kernel.cl)
 set(CL_VERSION ${OpenCL_VERSION_MAJOR}${OpenCL_VERSION_MINOR}0)
 

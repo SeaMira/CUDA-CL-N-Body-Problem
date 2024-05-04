@@ -86,5 +86,7 @@ int main(int argc, char* argv[]) {
   //     << "\n";
 
   // std::cout << "Data written to " << argv[2] << std::endl;
+  delete[] posiciones;
+  delete[] velocidades;
   return 0;
 }
