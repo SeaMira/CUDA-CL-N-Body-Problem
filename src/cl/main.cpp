@@ -4,7 +4,7 @@
 #ifdef __APPLE__
 #include <OpenCL/opencl.hpp>
 #else
-#include <CL/opencl.hpp>
+#include <CL/cl.hpp>
 #endif  // DEBUG
 #include <chrono>
 #include <fstream>
@@ -125,9 +125,9 @@ bool simulate() {
 
   // Print the result
   std::cout << "RESULTS: " << std::endl;
-  for (int i = 0; i < N; i++)
-    std::cout << "  out[" << i << "]: " << c[i] << " (" << a[i] << " + " << b[i]
-              << ")\n";
+  // for (int i = 0; i < N; i++)
+  //   std::cout << "  out[" << i << "]: " << c[i] << " (" << a[i] << " + " << b[i]
+  //             << ")\n";
 
   std::cout << "Time to create data: " << t.create_data << " microseconds\n";
   std::cout << "Time to copy data to device: " << t.copy_to_device
@@ -167,7 +167,7 @@ int main(int argc, char* argv[]) {
   // // params
   // out << n << "," << ls << "," << gs << ",";
   // times
-  out << t.create_data << "," << t.copy_to_device << "," << t.execution << ","
+  std::cout << t.create_data << "," << t.copy_to_device << "," << t.execution << ","
       << t.copy_to_host << "," << t.total() << "\n";
 
   // std::cout << "Data written to " << argv[4] << std::endl;

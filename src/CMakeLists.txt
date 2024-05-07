@@ -1,4 +1,6 @@
 include(CheckLanguage)
+set(OpenCL_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/include)
+set(OpenCL_LIBRARY "C:/Windows/System32/OpenCL.dll")
 find_package(OpenCL)
 check_language(CUDA)
 if(CMAKE_CUDA_COMPILER)
