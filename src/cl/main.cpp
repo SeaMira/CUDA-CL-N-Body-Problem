@@ -11,6 +11,7 @@
 #include <iostream>
 #include <sstream>
 #include <filesystem>
+#include <cmath>
 
 struct Times {
   long create_data;
@@ -55,8 +56,8 @@ bool init() {
   std::filesystem::path p = std::filesystem::current_path(); // Obtiene la ruta actual
   std::cout << "La ruta actual es: " << p << std::endl;
 
-  std::string src_code = load_from_file("src/cl/kernel_wth_local_mem.cl");
-  if (src_code.empty()) src_code = load_from_file("kernel_wth_local_mem.cl");
+  std::string src_code = load_from_file("src/cl/kernel_bidimensional.cl");
+  if (src_code.empty()) src_code = load_from_file("kernel_bidimensional.cl");
   std::cout << src_code.c_str() << std::endl;
   cl::Program::Sources sources;
   sources.push_back({src_code.c_str(), src_code.length()});
@@ -187,17 +188,22 @@ bool simulate_matrix() {
   
 
   float step = 1.0f;
+  int n = pow(2, 6);
   // Set the kernel arguments
   kernel.setArg(0, posBuff);
   kernel.setArg(1, velBuff);
   kernel.setArg(2, bodies);
   kernel.setArg(3, step);
+  kernel.setArg(4, n);
+  kernel.setArg(5, bodies/n);
+
   // pasar por argumento la masa, quizás, en un arreglo
   // kernel.setArg(3, N);
 
   // Execute the function on the device (using 32 threads here)
-  cl::NDRange gSize(bodies);
-  cl::NDRange lSize(WORK_GROUP_SIZE);
+  cl::NDRange gSize(n, bodies/n);
+  int m = 4;
+  cl::NDRange lSize(WORK_GROUP_SIZE/m, m);
 
   t_start = std::chrono::high_resolution_clock::now();
   queue.enqueueNDRangeKernel(kernel, cl::NullRange, gSize, lSize);
@@ -329,7 +335,7 @@ int main(int argc, char* argv[]) {
   // int gs = std::stoi(argv[3]);
   for (int i = 0; i < 8; i++) {
     for (int j = 0; j < 3; j++) {
-      if (!simulate_with_local_mem()) {
+      if (!simulate_matrix()) {
         std::cerr << "CL: Error while executing the simulation" << std::endl;
         return 3;
       }
