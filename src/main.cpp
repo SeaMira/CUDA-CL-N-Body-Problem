@@ -11,7 +11,7 @@ struct Times {
   long total() { return create_data + execution; }
 };
 
-int bodies = 516, pos_x_limit = 100, pos_y_limit = 100, pos_z_limit = 100, vel_x_limit = 100, vel_y_limit = 100, vel_z_limit = 100;
+int bodies = 512, pos_x_limit = 100, pos_y_limit = 100, pos_z_limit = 100, vel_x_limit = 100, vel_y_limit = 100, vel_z_limit = 100;
 Times t;
 float *posiciones;
 float *velocidades;

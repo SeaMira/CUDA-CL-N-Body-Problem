@@ -14,6 +14,7 @@ cuda: init
 cl: init
 	@mkdir -p $(BUILD)/src/cl
 	@cp src/cl/kernel.cl $(BUILD)/src/cl/kernel.cl
+	@cp src/cl/kernel.cl $(BUILD)/src/cl/kernel_wth_local_mem.cl
 	@cmake --build $(BUILD) --target $(PROJECT)CL -j 10
 
 cpu: init
