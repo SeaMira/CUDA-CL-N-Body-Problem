@@ -12,6 +12,7 @@
 #include <sstream>
 #include <filesystem>
 #include <cmath>
+#include <format>
 
 struct Times {
   long create_data;
@@ -22,16 +23,16 @@ struct Times {
     return create_data + copy_to_host + execution + copy_to_device;
   }
 };
-int LOCAL_SIZE;
-int bodies = 8192, pos_x_limit = 100, pos_y_limit = 100, pos_z_limit = 100, vel_x_limit = 100, vel_y_limit = 100, vel_z_limit = 100;
-int WORK_GROUP_SIZE = 32;
+
+int pos_x_limit = 100, pos_y_limit = 100, pos_z_limit = 100, vel_x_limit = 100, vel_y_limit = 100, vel_z_limit = 100;
+
 Times t;
 float *posiciones;
 float *velocidades;
 cl::Program prog;
 cl::CommandQueue queue;
 
-bool init() {
+bool init(std::string filename) {
   std::vector<cl::Platform> platforms;
   std::vector<cl::Device> devices;
   cl::Platform::get(&platforms);
@@ -46,19 +47,15 @@ bool init() {
 
   std::cout << "GPU Used: " << devices.front().getInfo<CL_DEVICE_NAME>()
             << std::endl;
-          
-  LOCAL_SIZE = devices.front().getInfo<CL_DEVICE_LOCAL_MEM_SIZE>();
-  std::cout << "Tamaño de memoria local " << LOCAL_SIZE << std::endl;
+        
 
   cl::Context context(devices.front());
   queue = cl::CommandQueue(context, devices.front());
 
   std::filesystem::path p = std::filesystem::current_path(); // Obtiene la ruta actual
-  std::cout << "La ruta actual es: " << p << std::endl;
 
-  std::string src_code = load_from_file("src/cl/kernel_bidimensional.cl");
-  if (src_code.empty()) src_code = load_from_file("kernel_bidimensional.cl");
-  std::cout << src_code.c_str() << std::endl;
+  std::string src_code = load_from_file(std::format("src/cl/{}", filename));
+  if (src_code.empty()) src_code = load_from_file(filename);
   cl::Program::Sources sources;
   sources.push_back({src_code.c_str(), src_code.length()});
 
@@ -73,12 +70,12 @@ bool init() {
   return true;
 }
 
-bool simulate() {
+bool simulate(int n, int gs, int ls) {
   using std::chrono::microseconds;
-  std::size_t size = sizeof(float) * bodies * 3;
+  std::size_t size = sizeof(float) * n * 3;
 
-  posiciones = new float[bodies*3];
-  velocidades = new float[bodies*3];
+  posiciones = new float[n*3];
+  velocidades = new float[n*3];
   // Create the memory buffers
   cl::Buffer posBuff(queue.getInfo<CL_QUEUE_CONTEXT>(), CL_MEM_READ_WRITE, size);
   cl::Buffer velBuff(queue.getInfo<CL_QUEUE_CONTEXT>(), CL_MEM_READ_WRITE, size);
@@ -86,8 +83,8 @@ bool simulate() {
   // Assign values to host variables
   auto t_start = std::chrono::high_resolution_clock::now();
   
-  init_values(pos_x_limit, pos_y_limit, pos_z_limit, posiciones, bodies);
-  init_values(vel_x_limit, vel_y_limit, vel_z_limit, velocidades, bodies);
+  init_values(pos_x_limit, pos_y_limit, pos_z_limit, posiciones, n);
+  init_values(vel_x_limit, vel_y_limit, vel_z_limit, velocidades, n);
 
   auto t_end = std::chrono::high_resolution_clock::now();
   t.create_data =
@@ -111,14 +108,14 @@ bool simulate() {
   // Set the kernel arguments
   kernel.setArg(0, posBuff);
   kernel.setArg(1, velBuff);
-  kernel.setArg(2, bodies);
+  kernel.setArg(2, n);
   kernel.setArg(3, step);
   // pasar por argumento la masa, quizás, en un arreglo
   // kernel.setArg(3, N);
 
   // Execute the function on the device (using 32 threads here)
-  cl::NDRange gSize(bodies);
-  cl::NDRange lSize(WORK_GROUP_SIZE);
+  cl::NDRange gSize(gs);
+  cl::NDRange lSize(ls);
 
   t_start = std::chrono::high_resolution_clock::now();
   queue.enqueueNDRangeKernel(kernel, cl::NullRange, gSize, lSize);
@@ -153,12 +150,12 @@ bool simulate() {
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////
-bool simulate_matrix() {
+bool simulate_matrix(int n, int gsx, int gsy, int lsx, int lsy) {
   using std::chrono::microseconds;
-  std::size_t size = sizeof(float) * bodies * 3;
+  std::size_t size = sizeof(float) * n * 3;
 
-  posiciones = new float[bodies*3];
-  velocidades = new float[bodies*3];
+  posiciones = new float[n*3];
+  velocidades = new float[n*3];
   // Create the memory buffers
   cl::Buffer posBuff(queue.getInfo<CL_QUEUE_CONTEXT>(), CL_MEM_READ_WRITE, size);
   cl::Buffer velBuff(queue.getInfo<CL_QUEUE_CONTEXT>(), CL_MEM_READ_WRITE, size);
@@ -166,8 +163,8 @@ bool simulate_matrix() {
   // Assign values to host variables
   auto t_start = std::chrono::high_resolution_clock::now();
   
-  init_values(pos_x_limit, pos_y_limit, pos_z_limit, posiciones, bodies);
-  init_values(vel_x_limit, vel_y_limit, vel_z_limit, velocidades, bodies);
+  init_values(pos_x_limit, pos_y_limit, pos_z_limit, posiciones, n);
+  init_values(vel_x_limit, vel_y_limit, vel_z_limit, velocidades, n);
 
   auto t_end = std::chrono::high_resolution_clock::now();
   t.create_data =
@@ -188,22 +185,21 @@ bool simulate_matrix() {
   
 
   float step = 1.0f;
-  int n = pow(2, 6);
+  // int n = pow(2, 6);
   // Set the kernel arguments
   kernel.setArg(0, posBuff);
   kernel.setArg(1, velBuff);
-  kernel.setArg(2, bodies);
+  kernel.setArg(2, n);
   kernel.setArg(3, step);
-  kernel.setArg(4, n);
-  kernel.setArg(5, bodies/n);
+  kernel.setArg(4, gsx);
+  kernel.setArg(5, gsy);
 
   // pasar por argumento la masa, quizás, en un arreglo
   // kernel.setArg(3, N);
 
   // Execute the function on the device (using 32 threads here)
-  cl::NDRange gSize(n, bodies/n);
-  int m = 4;
-  cl::NDRange lSize(WORK_GROUP_SIZE/m, m);
+  cl::NDRange gSize(gsx, gsy);
+  cl::NDRange lSize(lsx, lsy);
 
   t_start = std::chrono::high_resolution_clock::now();
   queue.enqueueNDRangeKernel(kernel, cl::NullRange, gSize, lSize);
@@ -239,12 +235,12 @@ bool simulate_matrix() {
 
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////
-bool simulate_with_local_mem() {
+bool simulate_with_local_mem(int n, int gs, int ls, int mem_size) {
   using std::chrono::microseconds;
-  std::size_t size = sizeof(float) * bodies * 3;
+  std::size_t size = sizeof(float) * n * 3;
 
-  posiciones = new float[bodies*3];
-  velocidades = new float[bodies*3];
+  posiciones = new float[n*3];
+  velocidades = new float[n*3];
   // Create the memory buffers
   cl::Buffer posBuff(queue.getInfo<CL_QUEUE_CONTEXT>(), CL_MEM_READ_WRITE, size);
   cl::Buffer velBuff(queue.getInfo<CL_QUEUE_CONTEXT>(), CL_MEM_READ_WRITE, size);
@@ -252,8 +248,8 @@ bool simulate_with_local_mem() {
   // Assign values to host variables
   auto t_start = std::chrono::high_resolution_clock::now();
   
-  init_values(pos_x_limit, pos_y_limit, pos_z_limit, posiciones, bodies);
-  init_values(vel_x_limit, vel_y_limit, vel_z_limit, velocidades, bodies);
+  init_values(pos_x_limit, pos_y_limit, pos_z_limit, posiciones, n);
+  init_values(vel_x_limit, vel_y_limit, vel_z_limit, velocidades, n);
 
   auto t_end = std::chrono::high_resolution_clock::now();
   t.create_data =
@@ -277,15 +273,15 @@ bool simulate_with_local_mem() {
   // Set the kernel arguments
   kernel.setArg(0, posBuff);
   kernel.setArg(1, velBuff);
-  kernel.setArg(2, bodies);
+  kernel.setArg(2, n);
   kernel.setArg(3, step);
-  kernel.setArg(4, sizeof(float)*256*3, NULL);
+  kernel.setArg(4, sizeof(float)*mem_size*3, NULL);
   // pasar por argumento la masa, quizás, en un arreglo
   // kernel.setArg(3, N);
 
   // Execute the function on the device (using 32 threads here)
-  cl::NDRange gSize(bodies);
-  cl::NDRange lSize(WORK_GROUP_SIZE);
+  cl::NDRange gSize(gs);
+  cl::NDRange lSize(ls);
 
   t_start = std::chrono::high_resolution_clock::now();
   queue.enqueueNDRangeKernel(kernel, cl::NullRange, gSize, lSize);
@@ -322,27 +318,58 @@ bool simulate_with_local_mem() {
 
 
 int main(int argc, char* argv[]) {
-  if (!init()) return 1;
+  
 
-  // if (argc != 5) {
-  //   std::cerr << "Uso: " << argv[0]
-  //             << " <array size> <local size> <global size> <output file>"
-  //             << std::endl;
-  //   return 2;
-  // }
-  // int n = std::stoi(argv[1]);
-  // int ls = std::stoi(argv[2]);
-  // int gs = std::stoi(argv[3]);
-  for (int i = 0; i < 8; i++) {
-    for (int j = 0; j < 3; j++) {
-      if (!simulate_matrix()) {
-        std::cerr << "CL: Error while executing the simulation" << std::endl;
-        return 3;
-      }
-    }
-    bodies*=2;
+  if (argc != 9) {
+    std::cerr << "Uso: " << argv[0]
+              << " <mode> <array size> <local size> <global size> <local size y> <global size y> <local memory size> <output file>"
+              << std::endl;
+    return 2;
   }
-
+  int mode = std::stoi(argv[1]); // 1- kernel, 2-kernel_with_local_mem, 3-kernel_bidimensional
+  int n = std::stoi(argv[2]);
+  int ls = std::stoi(argv[3]);
+  int gs = std::stoi(argv[4]);
+  int lsy = std::stoi(argv[5]);
+  int gsy = std::stoi(argv[6]);
+  int mem_size = std::stoi(argv[7]);
+  std::string out_filename = argv[8];
+  // for (int i = 0; i < 8; i++) {
+  //   for (int j = 0; j < 3; j++) {
+  //     if (!simulate_matrix()) {
+  //       std::cerr << "CL: Error while executing the simulation" << std::endl;
+  //       return 3;
+  //     }
+  //   }
+  //   bodies*=2;
+  // }
+  switch (mode)
+  {
+  case 1:
+    if (!init("kernel.cl")) return 1;
+    if (!simulate(n, gs, ls)) {
+      std::cerr << "CL: Error while executing the simulation" << std::endl;
+      return 3;
+    }
+    break;
+  case 2:
+    if (!init("kernel_wth_local_mem.cl")) return 1;
+    if (!simulate_with_local_mem(n, gs, ls, mem_size)) {
+      std::cerr << "CL: Error while executing the simulation" << std::endl;
+      return 3;
+    }
+    break;
+  case 3:
+    if (!init("kernel_bidimensional.cl")) return 1;
+    if (!simulate_matrix(n, gs, gsy, ls, lsy)) {
+      std::cerr << "CL: Error while executing the simulation" << std::endl;
+      return 3;
+    }
+    break;
+  
+  default:
+    break;
+  }
   // std::ofstream out;
   // out.open(argv[4], std::ios::app | std::ios::out);
   // if (!out.is_open()) {
