@@ -5,18 +5,18 @@ kernel void bodyInteraction(__global float *pos, __global float *vel, const int 
   int gindex = idx*m+idy;
   float k = 0;
   if (gindex < bodies) {
+    float x, y, z, vx, vy, vz;
     while (k < 100 ) {
 
-      if (gindex == 0) pos[bodies*3] += 1;
       // getting this thread's position
-      float x = pos[gindex*3];
-      float y = pos[gindex*3+1];
-      float z = pos[gindex*3+2];
+      x = pos[gindex*3];
+      y = pos[gindex*3+1];
+      z = pos[gindex*3+2];
 
       // getting this thread's velocity
-      float vx = vel[gindex*3];
-      float vy = vel[gindex*3+1];
-      float vz = vel[gindex*3+2];
+      vx = vel[gindex*3];
+      vy = vel[gindex*3+1];
+      vz = vel[gindex*3+2];
 
       // getting new acceleration
       float acc[3] = {0};
@@ -59,6 +59,5 @@ kernel void bodyInteraction(__global float *pos, __global float *vel, const int 
       barrier(CLK_GLOBAL_MEM_FENCE);
       k += step;
     }
-    pos[0] = 120;
   }
 }

@@ -5,18 +5,18 @@ kernel void bodyInteraction(__global float *pos, __global float *vel, const int 
   int tnum = get_local_id( 0 ); // thread (i.e., work-item) number in this work-group
   unsigned int loop = bodies/numItems;
   if (gindex < bodies) {
+    float x, y, z, vx, vy, vz;
     while (k < 100 ) {
 
-      if (gindex == 0) pos[bodies*3] += 1;
       // getting this thread's position
-      float x = pos[gindex*3];
-      float y = pos[gindex*3+1];
-      float z = pos[gindex*3+2];
+      x = pos[gindex*3];
+      y = pos[gindex*3+1];
+      z = pos[gindex*3+2];
 
       // getting this thread's velocity
-      float vx = vel[gindex*3];
-      float vy = vel[gindex*3+1];
-      float vz = vel[gindex*3+2];
+      vx = vel[gindex*3];
+      vy = vel[gindex*3+1];
+      vz = vel[gindex*3+2];
 
       // getting new acceleration
       float acc[3] = {0};

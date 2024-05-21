@@ -23,7 +23,7 @@ struct Times {
     return create_data + copy_to_host + execution + copy_to_device;
   }
 };
-
+long localMemSize;
 int pos_x_limit = 100, pos_y_limit = 100, pos_z_limit = 100, vel_x_limit = 100, vel_y_limit = 100, vel_z_limit = 100;
 
 Times t;
@@ -47,6 +47,9 @@ bool init(std::string filename) {
 
   std::cout << "GPU Used: " << devices.front().getInfo<CL_DEVICE_NAME>()
             << std::endl;
+  
+  device.getInfo(CL_DEVICE_LOCAL_MEM_SIZE, &localMemSize);
+  std::cout << "Maximum local memory size: " << localMemSize << " bytes" << std::endl;
         
 
   cl::Context context(devices.front());
@@ -56,6 +59,7 @@ bool init(std::string filename) {
 
   std::string src_code = load_from_file(std::format("src/cl/{}", filename));
   if (src_code.empty()) src_code = load_from_file(filename);
+  std::cout << src_code << std::endl;
   cl::Program::Sources sources;
   sources.push_back({src_code.c_str(), src_code.length()});
 
@@ -233,6 +237,9 @@ bool simulate_matrix(int n, int gsx, int gsy, int lsx, int lsy) {
   return true;
 }
 
+long Min(long a, long b) {
+  return a < b ? a : b;
+}
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 bool simulate_with_local_mem(int n, int gs, int ls, int mem_size) {
@@ -267,7 +274,9 @@ bool simulate_with_local_mem(int n, int gs, int ls, int mem_size) {
 
   // Make kernel
   cl::Kernel kernel(prog, "bodyInteraction");
-  
+  localMemSize /= sizeof(float)*3;
+  mem_size /= sizeof(float)*3;
+  localMemSize = Min(localMemSize, (long) mem_size);
 
   float step = 1.0f;
   // Set the kernel arguments
@@ -275,7 +284,8 @@ bool simulate_with_local_mem(int n, int gs, int ls, int mem_size) {
   kernel.setArg(1, velBuff);
   kernel.setArg(2, n);
   kernel.setArg(3, step);
-  kernel.setArg(4, sizeof(float)*mem_size*3, NULL);
+  kernel.setArg(4, sizeof(float)*localMemSize*3, NULL);
+  kernel.setArg(5, localMemSize);
   // pasar por argumento la masa, quizás, en un arreglo
   // kernel.setArg(3, N);
 
@@ -370,14 +380,16 @@ int main(int argc, char* argv[]) {
   default:
     break;
   }
-  // std::ofstream out;
-  // out.open(argv[4], std::ios::app | std::ios::out);
-  // if (!out.is_open()) {
-  //   std::cerr << "Error while opening file: '" << argv[2] << "'" << std::endl;
-  //   return 4;
-  // }
-  // // params
-  // out << n << "," << ls << "," << gs << ",";
+
+  std::ofstream out;
+  out.open(out_filename, std::ios::app | std::ios::out);
+  if (!out.is_open()) {
+    std::cerr << "Error while opening file: '" << out_filename << "'" << std::endl;
+    return 4;
+  }
+  // params
+  out << n << "," << ls << "," << gs << "," << lsy << "," << gsy << "," << localMemSize*3*sizeof(float) << "," << t.create_data << "," << t.copy_to_device << "," << t.execution << ","
+      << t.copy_to_host << "\n";
   // times
   std::cout << t.create_data << "," << t.copy_to_device << "," << t.execution << ","
       << t.copy_to_host << "," << t.total() << "\n";
