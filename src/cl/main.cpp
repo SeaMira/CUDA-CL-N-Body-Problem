@@ -23,7 +23,7 @@ struct Times {
     return create_data + copy_to_host + execution + copy_to_device;
   }
 };
-long localMemSize;
+cl_ulong localMemSize;
 int pos_x_limit = 100, pos_y_limit = 100, pos_z_limit = 100, vel_x_limit = 100, vel_y_limit = 100, vel_z_limit = 100;
 
 Times t;
@@ -48,7 +48,10 @@ bool init(std::string filename) {
   std::cout << "GPU Used: " << devices.front().getInfo<CL_DEVICE_NAME>()
             << std::endl;
   
+  cl::Device device = devices.front();
+
   device.getInfo(CL_DEVICE_LOCAL_MEM_SIZE, &localMemSize);
+  // devices.front().getInfo<CL_DEVICE_LOCAL_MEM_SIZE>(localMemSize)
   std::cout << "Maximum local memory size: " << localMemSize << " bytes" << std::endl;
         
 
@@ -59,7 +62,7 @@ bool init(std::string filename) {
 
   std::string src_code = load_from_file(std::format("src/cl/{}", filename));
   if (src_code.empty()) src_code = load_from_file(filename);
-  std::cout << src_code << std::endl;
+  // std::cout << src_code << std::endl;
   cl::Program::Sources sources;
   sources.push_back({src_code.c_str(), src_code.length()});
 
@@ -258,6 +261,12 @@ bool simulate_with_local_mem(int n, int gs, int ls, int mem_size) {
   init_values(pos_x_limit, pos_y_limit, pos_z_limit, posiciones, n);
   init_values(vel_x_limit, vel_y_limit, vel_z_limit, velocidades, n);
 
+  // for (int i = 0; i < n; i++) {
+  //   std::cout << posiciones[i] << std::endl;
+  //   std::cout << posiciones[i+1] << std::endl;
+  //   std::cout << posiciones[i+2] << std::endl;
+  // }
+
   auto t_end = std::chrono::high_resolution_clock::now();
   t.create_data =
       std::chrono::duration_cast<microseconds>(t_end - t_start).count();
@@ -275,8 +284,11 @@ bool simulate_with_local_mem(int n, int gs, int ls, int mem_size) {
   // Make kernel
   cl::Kernel kernel(prog, "bodyInteraction");
   localMemSize /= sizeof(float)*3;
-  mem_size /= sizeof(float)*3;
-  localMemSize = Min(localMemSize, (long) mem_size);
+  std::cout << localMemSize << " localMemSize" << std::endl;
+  std::cout << mem_size << " mem_size" << std::endl;
+  // mem_size /= sizeof(float)*3;
+  localMemSize = Min((long)localMemSize, (long) mem_size);
+  std::cout << localMemSize << " minimo" << std::endl;
 
   float step = 1.0f;
   // Set the kernel arguments
