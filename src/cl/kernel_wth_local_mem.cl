@@ -4,10 +4,19 @@ kernel void bodyInteraction(__global float *pos, __global float *vel, const int 
   int numItems = get_local_size( 0 ); // # work-items per work-group
   int tnum = get_local_id( 0 ); // thread (i.e., work-item) number in this work-group
   int loop = bodies/numItems;
+  int count=0;
   if (gindex < bodies) {
     float x, y, z, vx, vy, vz;
-    while (k < 100 ) {
+    // getting this thread's position
+    x = pos[gindex*3];
+    y = pos[gindex*3+1];
+    z = pos[gindex*3+2];
 
+    // getting this thread's velocity
+    vx = vel[gindex*3];
+    vy = vel[gindex*3+1];
+    vz = vel[gindex*3+2];
+    while (k < 100 ) {
       // getting this thread's position
       x = pos[gindex*3];
       y = pos[gindex*3+1];
@@ -29,8 +38,7 @@ kernel void bodyInteraction(__global float *pos, __global float *vel, const int 
         prods[tnum*3+2] = pos[tnum*3 + numItems*l+2];
 
         barrier(CLK_LOCAL_MEM_FENCE);
-
-        for (int i = 0; i < min(numItems, bodies-loop*numItems)*3; i+=3) {
+        for (int i = 0; i < min(numItems, bodies-l*numItems)*3; i+=3) {
             dx = prods[i] - x;
             dy = prods[i+1] - y;
             dz = prods[i+2] - z;
@@ -43,7 +51,6 @@ kernel void bodyInteraction(__global float *pos, __global float *vel, const int 
             acc[0] += vec*dx;
             acc[1] += vec*dy;
             acc[2] += vec*dz;
-            
         }
         barrier(CLK_LOCAL_MEM_FENCE);
       }
@@ -62,13 +69,11 @@ kernel void bodyInteraction(__global float *pos, __global float *vel, const int 
       pos[gindex*3+1] = y;
       pos[gindex*3+2] = z;
 
-      vel[gindex*3] = vx;
-      vel[gindex*3+1] = vy;
-      vel[gindex*3+2] = vz;
-
       barrier(CLK_GLOBAL_MEM_FENCE);
       k += step;
     }
-    pos[0] = 120;
+    vel[gindex*3] = vx;
+    vel[gindex*3+1] = vy;
+    vel[gindex*3+2] = vz;
   }
 }

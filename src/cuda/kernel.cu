@@ -46,18 +46,17 @@ __device__ void bodyInteraction(float *pos, float *vel, int bodies, float step,i
     pos[gindex*3+1] = y;
     pos[gindex*3+2] = z;
 
-    vel[gindex*3] = vx;
-    vel[gindex*3+1] = vy;
-    vel[gindex*3+2] = vz;
-
     __syncthreads();
     k += step;
   }
+  vel[gindex*3] = vx;
+  vel[gindex*3+1] = vy;
+  vel[gindex*3+2] = vz;
 }
 
 __device__ void bodyInteractionLocal(float *pos, float *vel, int bodies, float step,int gindex){
-	float k = 0;
   extern __shared__ float sharedmem[];
+  float k = 0;
   int numItems = blockDim.x;
   int tnum = blockIdx.x;
   unsigned int loop = bodies/numItems;
@@ -81,11 +80,11 @@ __device__ void bodyInteractionLocal(float *pos, float *vel, int bodies, float s
         sharedmem[tnum*3+2] = pos[tnum*3 + numItems*l+2];
       }
       __syncthreads();
-      int range=min(numItems,bodies-numItems*l)*3;
-      for(int i=0;i<range;i+=3){
-        dx = sharedmem[i] - x;
-        dy = sharedmem[i+1] - y;
-        dz = sharedmem[i+2] - z;
+      int range=min(numItems,bodies-numItems*l);
+      for(int i=0;i<range;i++){
+        dx = sharedmem[i*3] - x;
+        dy = sharedmem[i*3+1] - y;
+        dz = sharedmem[i*3+2] - z;
 
         dist = sqrt(dx*dx + dy*dy + dz*dz);
         if (dist != 0) {
@@ -97,6 +96,7 @@ __device__ void bodyInteractionLocal(float *pos, float *vel, int bodies, float s
           acc[2] += vec*dz;
         }
       }
+      __syncthreads();
     }
     vx += acc[0]*step;
     vy += acc[1]*step;
@@ -106,19 +106,16 @@ __device__ void bodyInteractionLocal(float *pos, float *vel, int bodies, float s
     y += vy*step;
     z += vz*step;
 
-    __syncthreads();
-
     pos[gindex*3] = x;
     pos[gindex*3+1] = y;
     pos[gindex*3+2] = z;
 
-    vel[gindex*3] = vx;
-    vel[gindex*3+1] = vy;
-    vel[gindex*3+2] = vz;
-
     __syncthreads();
     k += step;
   }
+  vel[gindex*3] = vx;
+  vel[gindex*3+1] = vy;
+  vel[gindex*3+2] = vz;
 }
 
 __global__ void bodyInteraction1D(float *pos,float *vel, int bodies,float step){

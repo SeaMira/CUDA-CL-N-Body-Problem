@@ -22,6 +22,13 @@ int pos_x_limit = 100, pos_y_limit = 100, pos_z_limit = 100, vel_x_limit = 100, 
 int WORK_GROUP_SIZE = 32;
 Times t;
 
+void checkCudaErrors(cudaError_t err, const char *msg) {
+    if (err != cudaSuccess) {
+        fprintf(stderr, "CUDA error: %s: %s\n", msg, cudaGetErrorString(err));
+        exit(EXIT_FAILURE);
+    }
+}
+
 void init_values(int x_limit, int y_limit, int z_limit, float *arr, int arr_size) {
   // srand(time(0));
 
@@ -49,8 +56,8 @@ bool simulate(int bodies,int iterations,dim3 block_size,dim3 grid_size,bool loca
       std::chrono::duration_cast<microseconds>(t_end - t_start).count();
   // Copy values from host variables to device
   t_start = std::chrono::high_resolution_clock::now();
-  cudaMemcpy(posBuff, posiciones.data(), size, cudaMemcpyHostToDevice);
-  cudaMemcpy(velBuff, velocidades.data(), size, cudaMemcpyHostToDevice);
+  checkCudaErrors(cudaMemcpy(posBuff, posiciones.data(), size, cudaMemcpyHostToDevice),"pos copy to device");
+  checkCudaErrors(cudaMemcpy(velBuff, velocidades.data(), size, cudaMemcpyHostToDevice),"vel copy to device");
   t_end = std::chrono::high_resolution_clock::now();
   t.copy_to_device =
       std::chrono::duration_cast<microseconds>(t_end - t_start).count();
@@ -67,15 +74,18 @@ bool simulate(int bodies,int iterations,dim3 block_size,dim3 grid_size,bool loca
   else{
     bodyInteraction1D<<<grid_size,block_size>>>((float*)posBuff,(float*)velBuff, bodies, step);
   }
-  cudaDeviceSynchronize();
+  checkCudaErrors(cudaGetLastError(), "Kernel launch");
+  checkCudaErrors(cudaDeviceSynchronize(),"sync");
   t_end = std::chrono::high_resolution_clock::now();
   t.execution =
       std::chrono::duration_cast<std::chrono::microseconds>(t_end - t_start)
           .count();
   // Copy the output variable from device to host
   t_start = std::chrono::high_resolution_clock::now();
-  cudaMemcpy(posBuff, posiciones.data(), size, cudaMemcpyDeviceToHost);
-  cudaMemcpy(velBuff, velocidades.data(), size, cudaMemcpyDeviceToHost);
+  cudaMemcpy(posiciones.data(), posBuff, size, cudaMemcpyDeviceToHost);//,"pos copy to host");
+  cudaMemcpy(velocidades.data(),velBuff, size, cudaMemcpyDeviceToHost);//,"vel copy to host");
+  cudaFree(posBuff);
+  cudaFree(velBuff);
   t_end = std::chrono::high_resolution_clock::now();
   t.copy_to_host =
       std::chrono::duration_cast<std::chrono::microseconds>(t_end - t_start)
@@ -156,7 +166,13 @@ int main(int argc, char* argv[]) {
     return 4;
   }
   // params
-  out << bodies << "," << block_size.x*block_size.y << "," << grid_size.x*grid_size.y << ",";
+  out << bodies << ",";
+  if (dim2){
+    out << block_size.x<<","<<block_size.y << "," << grid_size.x<<","<<grid_size.y << ",";
+  }
+  else{
+    out << block_size.x << "," << grid_size.x << ",";
+  }
   // times
   out << t.create_data << "," << t.copy_to_device << "," << t.execution << "," << t.copy_to_host << "," << t.total() << "\n";
 

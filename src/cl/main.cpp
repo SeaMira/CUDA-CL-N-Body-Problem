@@ -3,6 +3,8 @@
 #include "auxilliary.h"
 #ifdef __APPLE__
 #include <OpenCL/opencl.hpp>
+#elif __linux__
+#include <OpenCL/opencl.hpp>
 #else
 #include <CL/cl.hpp>
 #endif  // DEBUG
@@ -12,7 +14,6 @@
 #include <sstream>
 #include <filesystem>
 #include <cmath>
-#include <format>
 
 struct Times {
   long create_data;
@@ -60,7 +61,7 @@ bool init(std::string filename) {
 
   std::filesystem::path p = std::filesystem::current_path(); // Obtiene la ruta actual
 
-  std::string src_code = load_from_file(std::format("src/cl/{}", filename));
+  std::string src_code = load_from_file("src/cl/"+filename);
   if (src_code.empty()) src_code = load_from_file(filename);
   // std::cout << src_code << std::endl;
   cl::Program::Sources sources;
@@ -92,7 +93,7 @@ bool simulate(int n, int gs, int ls) {
   
   init_values(pos_x_limit, pos_y_limit, pos_z_limit, posiciones, n);
   init_values(vel_x_limit, vel_y_limit, vel_z_limit, velocidades, n);
-
+  std::cout<<"posiciones iniciales "<<posiciones[0]<<", "<<posiciones[1]<<std::endl;
   auto t_end = std::chrono::high_resolution_clock::now();
   t.create_data =
       std::chrono::duration_cast<microseconds>(t_end - t_start).count();
@@ -140,7 +141,7 @@ bool simulate(int n, int gs, int ls) {
   t.copy_to_host =
       std::chrono::duration_cast<std::chrono::microseconds>(t_end - t_start)
           .count();
-
+  std::cout<<"posiciones finales"<<posiciones[0]<<", "<<posiciones[1]<<std::endl;
   // Print the result
   std::cout << "RESULTS: " << std::endl;
   
@@ -224,7 +225,6 @@ bool simulate_matrix(int n, int gsx, int gsy, int lsx, int lsy) {
   t.copy_to_host =
       std::chrono::duration_cast<std::chrono::microseconds>(t_end - t_start)
           .count();
-
   // Print the result
   std::cout << "RESULTS: " << std::endl;
   
@@ -292,21 +292,28 @@ bool simulate_with_local_mem(int n, int gs, int ls, int mem_size) {
 
   float step = 1.0f;
   // Set the kernel arguments
-  kernel.setArg(0, posBuff);
-  kernel.setArg(1, velBuff);
-  kernel.setArg(2, n);
-  kernel.setArg(3, step);
-  kernel.setArg(4, sizeof(float)*localMemSize*3, NULL);
-  kernel.setArg(5, localMemSize);
+  err=kernel.setArg(0, posBuff);
+  err|=kernel.setArg(1, velBuff);
+  err|=kernel.setArg(2, n);
+  err|=kernel.setArg(3, step);
+  err|=kernel.setArg(4, sizeof(float)*localMemSize*3, NULL);
+  err|=kernel.setArg(5, localMemSize);
+  if (err != CL_SUCCESS) {
+        printf("Error al establecer los argumentos del kernel: %d\n", err);
+        return err;
+    }
   // pasar por argumento la masa, quizás, en un arreglo
   // kernel.setArg(3, N);
 
   // Execute the function on the device (using 32 threads here)
   cl::NDRange gSize(gs);
   cl::NDRange lSize(ls);
-
   t_start = std::chrono::high_resolution_clock::now();
-  queue.enqueueNDRangeKernel(kernel, cl::NullRange, gSize, lSize);
+  err=queue.enqueueNDRangeKernel(kernel, cl::NullRange, gSize, lSize);
+  if (err != CL_SUCCESS) {
+    printf("Error al encolar el kernel: %d\n", err);
+    return err;
+  }
   queue.finish();
   t_end = std::chrono::high_resolution_clock::now();
   t.execution =
@@ -321,7 +328,6 @@ bool simulate_with_local_mem(int n, int gs, int ls, int mem_size) {
   t.copy_to_host =
       std::chrono::duration_cast<std::chrono::microseconds>(t_end - t_start)
           .count();
-
   // Print the result
   std::cout << "RESULTS: " << std::endl;
   
@@ -356,15 +362,7 @@ int main(int argc, char* argv[]) {
   int gsy = std::stoi(argv[6]);
   int mem_size = std::stoi(argv[7]);
   std::string out_filename = argv[8];
-  // for (int i = 0; i < 8; i++) {
-  //   for (int j = 0; j < 3; j++) {
-  //     if (!simulate_matrix()) {
-  //       std::cerr << "CL: Error while executing the simulation" << std::endl;
-  //       return 3;
-  //     }
-  //   }
-  //   bodies*=2;
-  // }
+
   switch (mode)
   {
   case 1:
@@ -388,7 +386,7 @@ int main(int argc, char* argv[]) {
       return 3;
     }
     break;
-  
+
   default:
     break;
   }
