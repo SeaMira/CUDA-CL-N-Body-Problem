@@ -96,7 +96,7 @@ bool simulate(int n, int gs, int ls) {
   auto t_end = std::chrono::high_resolution_clock::now();
   t.create_data =
       std::chrono::duration_cast<microseconds>(t_end - t_start).count();
-
+  
   // Copy values from host variables to device
   t_start = std::chrono::high_resolution_clock::now();
   // usar CL_FALSE para hacerlo asíncrono
@@ -141,6 +141,7 @@ bool simulate(int n, int gs, int ls) {
       std::chrono::duration_cast<std::chrono::microseconds>(t_end - t_start)
           .count();
 
+  
   // Print the result
   std::cout << "RESULTS: " << std::endl;
   
@@ -260,7 +261,6 @@ bool simulate_with_local_mem(int n, int gs, int ls, int mem_size) {
   
   init_values(pos_x_limit, pos_y_limit, pos_z_limit, posiciones, n);
   init_values(vel_x_limit, vel_y_limit, vel_z_limit, velocidades, n);
-
   // for (int i = 0; i < n; i++) {
   //   std::cout << posiciones[i] << std::endl;
   //   std::cout << posiciones[i+1] << std::endl;

@@ -30,7 +30,7 @@ kernel void bodyInteraction(__global float *pos, __global float *vel, const int 
 
         barrier(CLK_LOCAL_MEM_FENCE);
 
-        for (int i = 0; i < min(numItems, bodies-loop*numItems)*3; i+=3) {
+        for (int i = 0; i < min(numItems, bodies-l*numItems)*3; i+=3) {
             dx = prods[i] - x;
             dy = prods[i+1] - y;
             dz = prods[i+2] - z;
@@ -69,6 +69,6 @@ kernel void bodyInteraction(__global float *pos, __global float *vel, const int 
       barrier(CLK_GLOBAL_MEM_FENCE);
       k += step;
     }
-    pos[0] = 120;
+    
   }
 }
