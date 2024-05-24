@@ -27,8 +27,10 @@ En la subcarpeta `cuda` tenemos la implementacion `MyprojectCUDA`, a diferencia 
 - sin optcode : se recibe en orden: cantidad de particulas, block_size, grid_size, ruta al archivo de resultados.
 - optcode -l : ejecuta la versión con memoria compartida, recibe los mismos argumentos anteriores, no es necesario especificar el tamaño de memoria, pues se calcula con el tamaño del bloque
 - optocde -2 : ejecuta la version en dos dimensiones, recibe: cantidad de particulas, block_size_x, block_size_y, grid_size_x, grid_size_y, ruta al archivo.
--l (optional) <array size> <block size> <grid size> <output file>
--2 <array size> <block size x> <block size y> <grid size x> <grid size y> <output file>
-## Ejecutar los experimentos
+`-l (optional) <array size> <block size> <grid size> <output file>`
+`-2 <array size> <block size x> <block size y> <grid size x> <grid size y> <output file>`
 
+## Ejecutar los experimentos
+Los experimentos fueron realizados en jupyter notebooks con python, dentro de la carpeta `experiment` cada archivo exp ejecuta una versión de la implementación, la primera linea asegura las librerias necesarias para el análisis de los datos, ejecutar las celdas retorna los gráficos de análisis de resultados.
+Para observar los resultados de las pruebas realizadas se puede revisar los valores guardados en los archivos .csv generados durante las pruebas.
 
