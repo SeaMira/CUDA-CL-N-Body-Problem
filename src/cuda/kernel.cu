@@ -60,7 +60,7 @@ __global__ void bodyInteraction1D(float *pos,float *vel, int bodies,float step){
 __global__ void bodyInteraction2D(float *pos,float *vel, int bodies,float step){
   int globalIdx_x = blockIdx.x * blockDim.x + threadIdx.x;
   int globalIdx_y = blockIdx.y * blockDim.y + threadIdx.y;
-  int gindex=globalIdx_y*blockDim.x*blockIdx.x+globalIdx_x;
+  int gindex=globalIdx_y*(gridDim.x *blockDim.x)+globalIdx_x;
   if (gindex<bodies){
     float k = 0;
     // getting this thread's position
@@ -148,7 +148,7 @@ __global__ void bodyInteractionLocal1D(float *pos,float *vel, int bodies,float s
           dy = sharedmem[i+1] - y;
           dz = sharedmem[i+2] - z;
 
-          dist = sqrt(dx*dx + dy*dy + dz*dz);
+          dist = sqrtf(dx*dx + dy*dy + dz*dz);
           if(dist!=0){
             cubedDist = dist*dist*dist;
             vec = 1/cubedDist;
