@@ -39,7 +39,7 @@ void init_values(int x_limit, int y_limit, int z_limit, float *arr, int arr_size
   }
 
 }
-bool simulate(int bodies,int iterations,dim3 block_size,dim3 grid_size,bool localmem) {
+bool simulate(int bodies,dim3 block_size,dim3 grid_size,bool localmem) {
   using std::chrono::microseconds;
   std::size_t size = sizeof(float) * bodies * 3;
   std::vector<float> posiciones(bodies*3),velocidades(bodies*3);
@@ -62,7 +62,7 @@ bool simulate(int bodies,int iterations,dim3 block_size,dim3 grid_size,bool loca
   t.copy_to_device =
       std::chrono::duration_cast<microseconds>(t_end - t_start).count();
   // Execute the function on the device (using 32 threads here)
-  float step = 100.0f/iterations;
+  float step = 1.0f;
   t_start = std::chrono::high_resolution_clock::now();
   if(localmem){
     int sharedMemSize = 3 * block_size.x * sizeof(float);
@@ -125,37 +125,36 @@ int main(int argc, char* argv[]) {
     }
   }
   int bodies;
-  int iterations;
   dim3 block_size;
   dim3 grid_size;
   std::string file;
   if(dim1){
-    if (argc != 6+localmem) {
-      std::cerr << "Uso: " << argv[0] << " <array size> <iterations> <block size> <grid size> <output file>"<<std::endl;
+    if (argc != 5+localmem) {
+      std::cerr << "Uso: " << argv[0];
+      if(localmem){std::cerr<<" -l";}
+       std::cerr<< " <array size> <block size> <grid size> <output file>"<<std::endl;
       return 2;
     }
     bodies = std::stoi(argv[localmem+1]);
-    iterations=std::stoi(argv[localmem+2]);
-    block_size =dim3(std::stoi(argv[localmem+3]),1);
-    grid_size = dim3(std::stoi(argv[localmem+4]),1);
-    file=argv[localmem+5];
+    block_size =dim3(std::stoi(argv[localmem+2]),1);
+    grid_size = dim3(std::stoi(argv[localmem+3]),1);
+    file=argv[localmem+4];
   }
   else if(dim2){
-    if (argc != 9) {
-      std::cerr << "Uso: " << argv[0] << " <array size> <iterations> "
-      <<"<block size x> <block size y> <grid size x> <grid size y> <output file>"<<std::endl;
+    if (argc != 8) {
+      std::cerr << "Uso: " << argv[0]<<" -2"
+      << " <array size> <block size x> <block size y> <grid size x> <grid size y> <output file>"<<std::endl;
       return 2;
     }
     bodies = std::stoi(argv[2]);
-    iterations=std::stoi(argv[3]);
-    block_size =dim3(std::stoi(argv[4]),std::stoi(argv[5]));
-    grid_size = dim3(std::stoi(argv[6]),std::stoi(argv[7]));
-    file=argv[8];
+    block_size =dim3(std::stoi(argv[3]),std::stoi(argv[4]));
+    grid_size = dim3(std::stoi(argv[5]),std::stoi(argv[6]));
+    file=argv[7];
   }
   else{
     return 2;
   }
-  if (!simulate(bodies,iterations,block_size,grid_size,localmem)) {
+  if (!simulate(bodies,block_size,grid_size,localmem)) {
     std::cerr << "CUDA: Error while executing the simulation" << std::endl;
     return 3;
   }

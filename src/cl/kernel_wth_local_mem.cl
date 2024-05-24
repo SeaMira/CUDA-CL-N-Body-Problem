@@ -39,18 +39,19 @@ kernel void bodyInteraction(__global float *pos, __global float *vel, const int 
 
         barrier(CLK_LOCAL_MEM_FENCE);
         for (int i = 0; i < min(numItems, bodies-l*numItems)*3; i+=3) {
-            dx = prods[i] - x;
-            dy = prods[i+1] - y;
-            dz = prods[i+2] - z;
+          dx = prods[i] - x;
+          dy = prods[i+1] - y;
+          dz = prods[i+2] - z;
 
-            dist = sqrt(dx*dx + dy*dy + dz*dz);
-            
-            cubedDist = dist*dist*dist + 0.1;
+          dist = sqrt(dx*dx + dy*dy + dz*dz);
+          if (dist != 0) {
+            cubedDist = dist*dist*dist;
             vec = 1/cubedDist;
 
             acc[0] += vec*dx;
             acc[1] += vec*dy;
             acc[2] += vec*dz;
+          }
         }
         barrier(CLK_LOCAL_MEM_FENCE);
       }

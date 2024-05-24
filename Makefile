@@ -21,11 +21,5 @@ cl: init
 cpu: init
 	@cmake --build $(BUILD) --target $(PROJECT)CPU -j 10
 
-test:
-	ctest --test-dir $(BUILD) --output-on-failure
-
 clean:
 	rm -rf .cache Testing build
-
-watch:
-	find src/ test/ | entr -s "make"
